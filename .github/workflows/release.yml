@@ -197,12 +197,12 @@ jobs:
 
 
       - name: Upload Release
-        uses: softprops/action-gh-release@v1
+        uses: svenstaro/upload-release-action@v2
         if: ${{  success() }}
         with:
-          # tag: ${{ github.ref_name }}
-          tag_name: ${{ github.ref }}
-          name: ${{ github.ref }}
-          files: sing-box-*
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref }}
+          file: sing-box-${{ matrix.name }}.zip
+          overwrite: true
           prerelease: false
-          generate_release_notes: true
+          
