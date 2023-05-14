@@ -184,12 +184,16 @@ jobs:
       - name: Build
         id: build
         run: make
+
+      - name: rename
+        run: |
+          7z a sing-box-${{ matrix.name }}.zip sing-box
         
-#       - name: Upload artifact
-#         uses: actions/upload-artifact@v3
-#         with:
-#           name: sing-box-${{ matrix.name }}
-#           path: sing-box*
+      # - name: Upload artifact
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: sing-box-${{ matrix.name }}
+      #     path: sing-box*
 
 
       - name: Upload Release
@@ -198,7 +202,7 @@ jobs:
         with:
           # tag: ${{ github.ref_name }}
           tag_name: ${{ github.ref }}
-          release_name: ${{ github.ref }}
-          files: sing-box*
+          name: ${{ github.ref }}
+          files: sing-box-*
           prerelease: false
           generate_release_notes: true
