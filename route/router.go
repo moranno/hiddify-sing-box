@@ -38,6 +38,7 @@ import (
 	M "github.com/sagernet/sing/common/metadata"
 	N "github.com/sagernet/sing/common/network"
 	"github.com/sagernet/sing/common/uot"
+	"github.com/sagernet/sing/service/pause"
 )
 
 var _ adapter.Router = (*Router)(nil)
@@ -78,6 +79,7 @@ type Router struct {
 	packageManager                     tun.PackageManager
 	processSearcher                    process.Searcher
 	timeService                        adapter.TimeService
+	pauseManager                       pause.Manager
 	clashServer                        adapter.ClashServer
 	v2rayServer                        adapter.V2RayServer
 	platformInterface                  platform.Interface
@@ -109,6 +111,7 @@ func NewRouter(
 		autoDetectInterface:   options.AutoDetectInterface,
 		defaultInterface:      options.DefaultInterface,
 		defaultMark:           options.DefaultMark,
+		pauseManager:          pause.ManagerFromContext(ctx),
 		platformInterface:     platformInterface,
 	}
 	router.dnsClient = dns.NewClient(dns.ClientOptions{
@@ -970,17 +973,23 @@ func (r *Router) NewError(ctx context.Context, err error) {
 	r.logger.ErrorContext(ctx, err)
 }
 
-func (r *Router) notifyNetworkUpdate(int) error {
-	if C.IsAndroid && r.platformInterface == nil {
-		var vpnStatus string
-		if r.interfaceMonitor.AndroidVPNEnabled() {
-			vpnStatus = "enabled"
-		} else {
-			vpnStatus = "disabled"
-		}
-		r.logger.Info("updated default interface ", r.interfaceMonitor.DefaultInterfaceName(netip.IPv4Unspecified()), ", index ", r.interfaceMonitor.DefaultInterfaceIndex(netip.IPv4Unspecified()), ", vpn ", vpnStatus)
+func (r *Router) notifyNetworkUpdate(event int) error {
+	if event == tun.EventNoRoute {
+		r.pauseManager.NetworkPause()
+		return nil
 	} else {
-		r.logger.Info("updated default interface ", r.interfaceMonitor.DefaultInterfaceName(netip.IPv4Unspecified()), ", index ", r.interfaceMonitor.DefaultInterfaceIndex(netip.IPv4Unspecified()))
+		r.pauseManager.NetworkWake()
+		if C.IsAndroid && r.platformInterface == nil {
+			var vpnStatus string
+			if r.interfaceMonitor.AndroidVPNEnabled() {
+				vpnStatus = "enabled"
+			} else {
+				vpnStatus = "disabled"
+			}
+			r.logger.Info("updated default interface ", r.interfaceMonitor.DefaultInterfaceName(netip.IPv4Unspecified()), ", index ", r.interfaceMonitor.DefaultInterfaceIndex(netip.IPv4Unspecified()), ", vpn ", vpnStatus)
+		} else {
+			r.logger.Info("updated default interface ", r.interfaceMonitor.DefaultInterfaceName(netip.IPv4Unspecified()), ", index ", r.interfaceMonitor.DefaultInterfaceIndex(netip.IPv4Unspecified()))
+		}
 	}
 
 	conntrack.Close()
