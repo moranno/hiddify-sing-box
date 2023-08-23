@@ -187,6 +187,7 @@ jobs:
 
       - name: rename
         run: |
+          ls -R
           7z a sing-box-${{ matrix.name }}.zip sing-box*
         
       # - name: Upload artifact
