@@ -159,7 +159,7 @@ func (c *echServerConfig) startECHWatcher() error {
 	if err != nil {
 		return err
 	}
-	c.echWatcher = watcher
+	c.watcher = watcher
 	go c.loopECHUpdate()
 	return nil
 }
@@ -178,7 +178,7 @@ func (c *echServerConfig) loopECHUpdate() {
 			if err != nil {
 				c.logger.Error(E.Cause(err, "reload ECH key"))
 			}
-		case err, ok := <-c.echWatcher.Errors:
+		case err, ok := <-c.watcher.Errors:
 			if !ok {
 				return
 			}
@@ -277,7 +277,7 @@ func NewECHServer(ctx context.Context, logger log.Logger, options option.Inbound
 		certificate = content
 	}
 	if len(options.Key) > 0 {
-		key = []byte(strings.Join(options.Key, "\n"))
+		key = []byte(strings.Join(options.Key, ""))
 	} else if options.KeyPath != "" {
 		content, err := os.ReadFile(options.KeyPath)
 		if err != nil {
@@ -298,20 +298,7 @@ func NewECHServer(ctx context.Context, logger log.Logger, options option.Inbound
 	}
 	tlsConfig.Certificates = []cftls.Certificate{keyPair}
 
-	var echKey []byte
-	if len(options.ECH.Key) > 0 {
-		echKey = []byte(strings.Join(options.ECH.Key, "\n"))
-	} else if options.KeyPath != "" {
-		content, err := os.ReadFile(options.ECH.KeyPath)
-		if err != nil {
-			return nil, E.Cause(err, "read ECH key")
-		}
-		echKey = content
-	} else {
-		return nil, E.New("missing ECH key")
-	}
-
-	block, rest := pem.Decode(echKey)
+	block, rest := pem.Decode([]byte(strings.Join(options.ECH.Key, "\n")))
 	if block == nil || block.Type != "ECH KEYS" || len(rest) > 0 {
 		return nil, E.New("invalid ECH keys pem")
 	}
