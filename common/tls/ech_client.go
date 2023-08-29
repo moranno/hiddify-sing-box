@@ -171,16 +171,18 @@ func NewECHClient(ctx context.Context, serverAddress string, options option.Outb
 	tlsConfig.ECHEnabled = true
 	tlsConfig.PQSignatureSchemesEnabled = options.ECH.PQSignatureSchemesEnabled
 	tlsConfig.DynamicRecordSizingDisabled = options.ECH.DynamicRecordSizingDisabled
-
-	var echConfig []byte
 	if len(options.ECH.Config) > 0 {
-		echConfig = []byte(strings.Join(options.ECH.Config, "\n"))
-	} else if options.ECH.ConfigPath != "" {
-		content, err := os.ReadFile(options.ECH.ConfigPath)
-		if err != nil {
-			return nil, E.Cause(err, "read ECH config")
+		block, rest := pem.Decode([]byte(strings.Join(options.ECH.Config, "\n")))
+		if block == nil || block.Type != "ECH CONFIGS" || len(rest) > 0 {
+			return nil, E.New("invalid ECH configs pem")
 		}
-		echConfig = content
+		echConfigs, err := cftls.UnmarshalECHConfigs(block.Bytes)
+		if err != nil {
+			return nil, E.Cause(err, "parse ECH configs")
+		}
+		tlsConfig.ClientECHConfigs = echConfigs
+	} else {
+		tlsConfig.GetClientECHConfigs = fetchECHClientConfig(ctx)
 	}
 
 	if len(echConfig) > 0 {
