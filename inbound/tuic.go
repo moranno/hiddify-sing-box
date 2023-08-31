@@ -38,10 +38,6 @@ func NewTUIC(ctx context.Context, router adapter.Router, logger log.ContextLogge
 	if err != nil {
 		return nil, err
 	}
-	rawConfig, err := tlsConfig.Config()
-	if err != nil {
-		return nil, err
-	}
 	var users []tuic.User
 	for index, user := range options.Users {
 		if user.UUID == "" {
