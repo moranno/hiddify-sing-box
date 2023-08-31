@@ -164,3 +164,27 @@ func (p *LinuxSystemProxy) setKDEProxy(proxyTypes ...string) error {
 	}
 	return nil
 }
+
+func setKDEProxy(port uint16, proxyTypes ...string) error {
+	for _, proxyType := range proxyTypes {
+		var proxyUrl string
+		if proxyType == "socks" {
+			proxyUrl = "socks://127.0.0.1:" + F.ToString(port)
+		} else {
+			proxyUrl = "http://127.0.0.1:" + F.ToString(port)
+		}
+		err := runAsUser(
+			"kwriteconfig5",
+			"--file",
+			"kioslaverc",
+			"--group",
+			"'Proxy Settings'",
+			"--key", proxyType+"Proxy",
+			proxyUrl,
+		)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
