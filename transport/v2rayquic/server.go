@@ -9,6 +9,7 @@ import (
 
 	"github.com/sagernet/quic-go"
 	"github.com/sagernet/sing-box/adapter"
+	"github.com/sagernet/sing-box/common/qtls"
 	"github.com/sagernet/sing-box/common/tls"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/option"
@@ -27,7 +28,7 @@ type Server struct {
 	quicConfig   *quic.Config
 	handler      adapter.V2RayServerTransportHandler
 	udpListener  net.PacketConn
-	quicListener qtls.Listener
+	quicListener qtls.QUICListener
 }
 
 func NewServer(ctx context.Context, options option.V2RayQUICOptions, tlsConfig tls.ServerConfig, handler adapter.V2RayServerTransportHandler) (adapter.V2RayServerTransport, error) {

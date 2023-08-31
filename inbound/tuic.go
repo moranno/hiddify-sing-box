@@ -39,6 +39,17 @@ func NewTUIC(ctx context.Context, router adapter.Router, logger log.ContextLogge
 	if err != nil {
 		return nil, err
 	}
+	var users []tuic.User
+	for index, user := range options.Users {
+		if user.UUID == "" {
+			return nil, E.New("missing uuid for user ", index)
+		}
+		userUUID, err := uuid.FromString(user.UUID)
+		if err != nil {
+			return nil, E.Cause(err, "invalid uuid for user ", index)
+		}
+		users = append(users, tuic.User{Name: user.Name, UUID: userUUID, Password: user.Password})
+	}
 	inbound := &TUIC{
 		myInboundAdapter: myInboundAdapter{
 			protocol:      C.TypeTUIC,
@@ -54,6 +65,7 @@ func NewTUIC(ctx context.Context, router adapter.Router, logger log.ContextLogge
 		Context:           ctx,
 		Logger:            logger,
 		TLSConfig:         tlsConfig,
+		Users:             users,
 		CongestionControl: options.CongestionControl,
 		AuthTimeout:       time.Duration(options.AuthTimeout),
 		ZeroRTTHandshake:  options.ZeroRTTHandshake,

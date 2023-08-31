@@ -5,7 +5,7 @@ package inbound
 import (
 	"github.com/sagernet/quic-go"
 	"github.com/sagernet/quic-go/http3"
-	"github.com/sagernet/sing-quic"
+	"github.com/sagernet/sing-box/common/qtls"
 	E "github.com/sagernet/sing/common/exceptions"
 )
 
