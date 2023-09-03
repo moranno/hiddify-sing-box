@@ -15,15 +15,19 @@ import (
 	"github.com/sagernet/sing/common/shell"
 )
 
-var (
-	hasGSettings bool
-	isKDE5       bool
-	sudoUser     string
-)
+type LinuxSystemProxy struct {
+	hasGSettings     bool
+	hasKWriteConfig5 bool
+	sudoUser         string
+	serverAddr       M.Socksaddr
+	supportSOCKS     bool
+	isEnabled        bool
+}
 
-func init() {
-	isKDE5 = common.Error(exec.LookPath("kwriteconfig5")) == nil
-	hasGSettings = common.Error(exec.LookPath("gsettings")) == nil
+func NewSystemProxy(ctx context.Context, serverAddr M.Socksaddr, supportSOCKS bool) (*LinuxSystemProxy, error) {
+	hasGSettings := common.Error(exec.LookPath("gsettings")) == nil
+	hasKWriteConfig5 := common.Error(exec.LookPath("kwriteconfig5")) == nil
+	var sudoUser string
 	if os.Getuid() == 0 {
 		sudoUser = os.Getenv("SUDO_USER")
 	}
@@ -123,65 +127,7 @@ func (p *LinuxSystemProxy) runAsUser(name string, args ...string) error {
 	}
 }
 
-func SetSystemProxy(router adapter.Router, port uint16, isMixed bool) (func() error, error) {
-	if hasGSettings {
-		err := runAsUser("gsettings", "set", "org.gnome.system.proxy.http", "enabled", "true")
-		if err != nil {
-			return nil, err
-		}
-		if isMixed {
-			err = setGnomeProxy(port, "ftp", "http", "https", "socks")
-		} else {
-			err = setGnomeProxy(port, "http", "https")
-		}
-		if err != nil {
-			return nil, err
-		}
-		err = runAsUser("gsettings", "set", "org.gnome.system.proxy", "use-same-proxy", F.ToString(isMixed))
-		if err != nil {
-			return nil, err
-		}
-		err = runAsUser("gsettings", "set", "org.gnome.system.proxy", "mode", "manual")
-		if err != nil {
-			return nil, err
-		}
-		return func() error {
-			return runAsUser("gsettings", "set", "org.gnome.system.proxy", "mode", "none")
-		}, nil
-	}
-	if isKDE5 {
-		err := runAsUser("kwriteconfig5", "--file", "kioslaverc", "--group", "'Proxy Settings'", "--key", "ProxyType", "1")
-		if err != nil {
-			return nil, err
-		}
-		if isMixed {
-			err = setKDEProxy(port, "ftp", "http", "https", "socks")
-		} else {
-			err = setKDEProxy(port, "http", "https")
-		}
-		if err != nil {
-			return nil, err
-		}
-		err = runAsUser("kwriteconfig5", "--file", "kioslaverc", "--group", "'Proxy Settings'", "--key", "Authmode", "0")
-		if err != nil {
-			return nil, err
-		}
-		err = runAsUser("dbus-send", "--type=signal", "/KIO/Scheduler", "org.kde.KIO.Scheduler.reparseSlaveConfiguration", "string:''")
-		if err != nil {
-			return nil, err
-		}
-		return func() error {
-			err = runAsUser("kwriteconfig5", "--file", "kioslaverc", "--group", "'Proxy Settings'", "--key", "ProxyType", "0")
-			if err != nil {
-				return err
-			}
-			return runAsUser("dbus-send", "--type=signal", "/KIO/Scheduler", "org.kde.KIO.Scheduler.reparseSlaveConfiguration", "string:''")
-		}, nil
-	}
-	return nil, E.New("unsupported desktop environment")
-}
-
-func setGnomeProxy(port uint16, proxyTypes ...string) error {
+func (p *LinuxSystemProxy) setGnomeProxy(proxyTypes ...string) error {
 	for _, proxyType := range proxyTypes {
 		err := p.runAsUser("gsettings", "set", "org.gnome.system.proxy."+proxyType, "host", p.serverAddr.AddrString())
 		if err != nil {
@@ -209,30 +155,6 @@ func (p *LinuxSystemProxy) setKDEProxy(proxyTypes ...string) error {
 			"kioslaverc",
 			"--group",
 			"Proxy Settings",
-			"--key", proxyType+"Proxy",
-			proxyUrl,
-		)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func setKDEProxy(port uint16, proxyTypes ...string) error {
-	for _, proxyType := range proxyTypes {
-		var proxyUrl string
-		if proxyType == "socks" {
-			proxyUrl = "socks://127.0.0.1:" + F.ToString(port)
-		} else {
-			proxyUrl = "http://127.0.0.1:" + F.ToString(port)
-		}
-		err := runAsUser(
-			"kwriteconfig5",
-			"--file",
-			"kioslaverc",
-			"--group",
-			"'Proxy Settings'",
 			"--key", proxyType+"Proxy",
 			proxyUrl,
 		)
