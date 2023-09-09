@@ -90,9 +90,9 @@ jobs:
           # - name: linux-386
           #   goos: linux
           #   goarch: 386
-          # - name: linux-arm64
-          #   goos: linux
-          #   goarch: arm64
+          - name: linux-arm64
+            goos: linux
+            goarch: arm64
           # - name: linux-armv5
           #   goos: linux
           #   goarch: arm
