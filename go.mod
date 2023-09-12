@@ -24,11 +24,11 @@ require (
 	github.com/sagernet/cloudflare-tls v0.0.0-20230829051644-4a68352d0c4a
 	github.com/sagernet/gomobile v0.0.0-20230728014906-3de089147f59
 	github.com/sagernet/gvisor v0.0.0-20230627031050-1ab0276e0dd2
-	github.com/sagernet/quic-go v0.0.0-20230831052420-45809eee2e86
+	github.com/sagernet/quic-go v0.0.0-20230911082307-390b7c274032
 	github.com/sagernet/reality v0.0.0-20230406110435-ee17307e7691
-	github.com/sagernet/sing v0.2.10-0.20230908032232-b0849c43a600
-	github.com/sagernet/sing-dns v0.1.9-0.20230824120133-4d5cbceb40c1
-	github.com/sagernet/sing-mux v0.1.3-0.20230908032617-759a1886a400
+	github.com/sagernet/sing v0.2.10-0.20230912051334-9163f4486b0d
+	github.com/sagernet/sing-dns v0.1.9-0.20230911082806-425022bdc92b
+	github.com/sagernet/sing-mux v0.1.3-0.20230907005326-7befbadbf314
 	github.com/sagernet/sing-shadowsocks v0.2.5-0.20230907005610-126234728ca0
 	github.com/sagernet/sing-shadowsocks2 v0.1.4-0.20230907005906-5d2917b29248
 	github.com/sagernet/sing-shadowtls v0.1.4
@@ -60,6 +60,7 @@ require (
 	github.com/Dreamacro/protobytes v0.0.0-20230617041236-6500a9f4f158 // indirect
 	github.com/ajg/form v1.5.1 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
+	github.com/cloudflare/circl v1.3.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
