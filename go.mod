@@ -13,7 +13,7 @@ require (
 	github.com/go-chi/cors v1.2.1
 	github.com/go-chi/render v1.0.3
 	github.com/gofrs/uuid/v5 v5.0.0
-	github.com/insomniacslk/dhcp v0.0.0-20230816195147-b3ca2534940d
+	github.com/insomniacslk/dhcp v0.0.0-20230908212754-65c27093e38a
 	github.com/libdns/alidns v1.0.3
 	github.com/libdns/cloudflare v0.1.0
 	github.com/logrusorgru/aurora v2.0.3+incompatible
@@ -44,14 +44,15 @@ require (
 	github.com/sagernet/wireguard-go v0.0.0-20230807125731-5d4a7ef2dc5f
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
+	go.etcd.io/bbolt v1.3.7
 	go.uber.org/zap v1.26.0
 	go4.org/netipx v0.0.0-20230824141953-6213f710f925
-	golang.org/x/crypto v0.14.0
-	golang.org/x/exp v0.0.0-20231005195138-3e424a577f31
-	golang.org/x/net v0.16.0
-	golang.org/x/sys v0.13.0
+	golang.org/x/crypto v0.13.0
+	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
+	golang.org/x/net v0.15.0
+	golang.org/x/sys v0.12.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6
-	google.golang.org/grpc v1.58.2
+	google.golang.org/grpc v1.58.1
 	google.golang.org/protobuf v1.31.0
 	howett.net/plist v1.0.0
 )
