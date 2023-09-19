@@ -28,12 +28,12 @@ require (
 	github.com/sagernet/gvisor v0.0.0-20230627031050-1ab0276e0dd2
 	github.com/sagernet/quic-go v0.0.0-20230919101909-0cc6c5dcecee
 	github.com/sagernet/reality v0.0.0-20230406110435-ee17307e7691
-	github.com/sagernet/sing v0.2.14-0.20231011040419-49f5dfd767e1
-	github.com/sagernet/sing-dns v0.1.10
-	github.com/sagernet/sing-mux v0.1.3
-	github.com/sagernet/sing-quic v0.1.2
-	github.com/sagernet/sing-shadowsocks v0.2.5
-	github.com/sagernet/sing-shadowsocks2 v0.1.4
+	github.com/sagernet/sing v0.2.10-0.20230912050851-1453c7c8c20d
+	github.com/sagernet/sing-dns v0.1.9-0.20230911082806-425022bdc92b
+	github.com/sagernet/sing-mux v0.1.3-0.20230908032617-759a1886a400
+	github.com/sagernet/sing-quic v0.0.0-20230919102644-5874c56aae1c
+	github.com/sagernet/sing-shadowsocks v0.2.5-0.20230907005610-126234728ca0
+	github.com/sagernet/sing-shadowsocks2 v0.1.4-0.20230907005906-5d2917b29248
 	github.com/sagernet/sing-shadowtls v0.1.4
 	github.com/sagernet/sing-tun v0.1.15
 	github.com/sagernet/sing-vmess v0.1.8
