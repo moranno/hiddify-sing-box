@@ -1,3 +1,8 @@
+#### 1.5.4
+
+* Fix Clash cache crash on arm32 devices
+* Update golang.org/x/net to v0.17.0
+
 #### 1.5.3
 
 * Fix compatibility with Android 14
