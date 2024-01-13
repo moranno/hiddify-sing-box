@@ -23,7 +23,8 @@ type OutboundTLSOptions struct {
 	MixedCaseSNI    bool                    `json:"mixedcase_sni,omitempty"`
 	ServerName      string                  `json:"server_name,omitempty"`
 	Insecure        bool                    `json:"insecure,omitempty"`
-	PaddingSize     string                  `json:"padding_size,omitempty"`
+	PaddingSize     string                  `json:"padding_size,omitempty"` // uses a random bytearray as padding. mutually exclusive with padding_sni
+	PaddingSNI      string                  `json:"padding_sni,omitempty"`  // uses smartpadding which creates a client hello as padding
 	ALPN            Listable[string]        `json:"alpn,omitempty"`
 	MinVersion      string                  `json:"min_version,omitempty"`
 	MaxVersion      string                  `json:"max_version,omitempty"`

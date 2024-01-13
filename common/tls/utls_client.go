@@ -23,6 +23,7 @@ import (
 type UTLSClientConfig struct {
 	config      *utls.Config
 	paddingSize [2]int
+	paddingSNI  string
 	id          utls.ClientHelloID
 }
 
@@ -52,13 +53,22 @@ func (e *UTLSClientConfig) Config() (*STDConfig, error) {
 func (e *UTLSClientConfig) Client(conn net.Conn) (Conn, error) {
 	var uConn *utls.UConn
 	if e.id != utls.HelloCustom {
-
 		uConn = utls.UClient(conn, e.config.Clone(), e.id)
 	} else {
 		var err error
-		uConn, err = makeTLSHelloPacketWithPadding(conn, e, e.config.ServerName)
-		if err != nil {
-			return nil, err
+
+		if e.paddingSNI != "" {
+			// TODO: add a flag to switch between random padding and smart padding
+			uConn, err = makeTLSHelloPacketWithSmartPadding(conn, e, e.config.ServerName, e.paddingSNI)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+
+			uConn, err = makeTLSHelloPacketWithPadding(conn, e, e.config.ServerName)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	return &utlsALPNWrapper{utlsConnWrapper{UConn: uConn}, e.config.NextProtos}, nil
@@ -205,6 +215,12 @@ func NewUTLSClient(ctx context.Context, serverAddress string, options option.Out
 	if err != nil {
 		return nil, err
 	}
+
+	if options.PaddingSNI != "" {
+		// using smartpadding
+		return &UTLSClientConfig{config: &tlsConfig, paddingSNI: options.PaddingSNI, id: id}, nil
+	}
+
 	if options.PaddingSize != "" {
 		padding_size, err := option.ParseIntRange(options.PaddingSize)
 		if err != nil {
