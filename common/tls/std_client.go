@@ -64,7 +64,7 @@ func NewSTDClient(ctx context.Context, serverAddress string, options option.Outb
 	if options.DisableSNI {
 		tlsConfig.ServerName = "127.0.0.1"
 	} else {
-		if options.MixedCaseSNI {
+		if options.TLSTricks != nil && options.TLSTricks.MixedCaseSNI {
 			tlsConfig.ServerName = randomizeCase(tlsConfig.ServerName)
 		} else {
 			tlsConfig.ServerName = serverName

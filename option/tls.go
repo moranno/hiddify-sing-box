@@ -20,7 +20,6 @@ type InboundTLSOptions struct {
 type OutboundTLSOptions struct {
 	Enabled         bool                    `json:"enabled,omitempty"`
 	DisableSNI      bool                    `json:"disable_sni,omitempty"`
-	MixedCaseSNI    bool                    `json:"mixedcase_sni,omitempty"`
 	ServerName      string                  `json:"server_name,omitempty"`
 	Insecure        bool                    `json:"insecure,omitempty"`
 	PaddingSize     string                  `json:"padding_size,omitempty"` // uses a random bytearray as padding. mutually exclusive with padding_sni
@@ -34,6 +33,7 @@ type OutboundTLSOptions struct {
 	ECH             *OutboundECHOptions     `json:"ech,omitempty"`
 	UTLS            *OutboundUTLSOptions    `json:"utls,omitempty"`
 	Reality         *OutboundRealityOptions `json:"reality,omitempty"`
+	TLSTricks       *TLSTricksOptions      `json:"tls_tricks,omitempty"`
 }
 
 type InboundRealityOptions struct {

@@ -15,11 +15,11 @@ import (
 type ExtendedTCPDialer struct {
 	net.Dialer
 	DisableTFO  bool
-	TLSFragment TLSFragment
+	TLSFragment *TLSFragment
 }
 
 func (d *ExtendedTCPDialer) DialContext(ctx context.Context, network string, destination M.Socksaddr) (net.Conn, error) {
-	if (d.DisableTFO && !d.TLSFragment.Enabled) || N.NetworkName(network) != N.NetworkTCP {
+	if (d.DisableTFO && !(d.TLSFragment != nil && d.TLSFragment.Enabled)) || N.NetworkName(network) != N.NetworkTCP {
 		switch N.NetworkName(network) {
 		case N.NetworkTCP, N.NetworkUDP:
 			return d.Dialer.DialContext(ctx, network, destination.String())
@@ -28,10 +28,10 @@ func (d *ExtendedTCPDialer) DialContext(ctx context.Context, network string, des
 		}
 	}
 	// Create a TLS-Fragmented dialer
-	if d.TLSFragment.Enabled {
+	if d.TLSFragment != nil && d.TLSFragment.Enabled {
 		fragmentConn := &fragmentConn{
 			dialer:      d.Dialer,
-			fragment:    d.TLSFragment,
+			fragment:    *d.TLSFragment,
 			network:     network,
 			destination: destination,
 		}

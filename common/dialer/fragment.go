@@ -51,7 +51,7 @@ func (c *fragmentConn) Write(b []byte) (n int, err error) {
 		return 0, c.err
 	}
 	// Do not fragment if it's not a TLS clientHello packet
-	if len(b) < 5 || b[0] != 22 {
+	if len(b) < 7 || b[0] != 22 {
 		return c.conn.Write(b)
 	}
 

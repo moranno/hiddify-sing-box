@@ -98,11 +98,13 @@ func NewDefault(router adapter.Router, options option.DialerOptions) (*DefaultDi
 		}
 		setMultiPathTCP(&dialer4)
 	}
-	if options.TLSFragment.Enabled && options.TCPFastOpen {
-		return nil, E.New("TLS Fragmentation is not compatible with TCP Fast Open, set `tcp_fast_open` to `false` in your outbound if you intend to enable TLS fragmentation.")
-	}
-	var tlsFragment TLSFragment
-	if options.TLSFragment.Enabled {
+
+	var tlsFragment *TLSFragment=nil
+	if options.TLSFragment != nil && options.TLSFragment.Enabled {
+		tlsFragment = &TLSFragment{}
+		if options.TCPFastOpen {
+			return nil, E.New("TLS Fragmentation is not compatible with TCP Fast Open, set `tcp_fast_open` to `false` in your outbound if you intend to enable TLS fragmentation.")
+		}
 		tlsFragment.Enabled = true
 
 		sleep, err := option.ParseIntRange(options.TLSFragment.Sleep)
