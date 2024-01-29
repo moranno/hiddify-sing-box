@@ -12,4 +12,21 @@ type SSHOutboundOptions struct {
 	HostKeyAlgorithms    Listable[string]   `json:"host_key_algorithms,omitempty"`
 	ClientVersion        string             `json:"client_version,omitempty"`
 	UDPOverTCP           *UDPOverTCPOptions `json:"udp_over_tcp,omitempty"`
+	Network              NetworkList        `json:"network,omitempty"`
+}
+
+type SSHUser struct {
+	Name      string `json:"name"`
+	User      string `json:"user"`
+	Password  string `json:"password,omitempty"`
+	PublicKey string `json:"private_key,omitempty"`
+}
+
+type SSHInboundOptions struct {
+	ListenOptions
+	Users             []SSHUser        `json:"users,omitempty"`
+	HostKey           Listable[string] `json:"host_key,omitempty"`
+	HostKeyAlgorithms Listable[string] `json:"host_key_algorithms,omitempty"`
+	Network           NetworkList      `json:"network,omitempty"`
+	ClientVersion     string           `json:"client_version,omitempty"`
 }

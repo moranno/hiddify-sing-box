@@ -54,7 +54,7 @@ func NewSSH(ctx context.Context, router adapter.Router, logger log.ContextLogger
 	outbound := &SSH{
 		myOutboundAdapter: myOutboundAdapter{
 			protocol:     C.TypeSSH,
-			network:      []string{N.NetworkTCP},
+			network:      options.Network.Build(),
 			router:       router,
 			logger:       logger,
 			tag:          tag,
