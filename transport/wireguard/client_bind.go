@@ -36,6 +36,7 @@ func NewClientBind(ctx context.Context, errorHandler E.Handler, dialer N.Dialer,
 		errorHandler:        errorHandler,
 		dialer:              dialer,
 		reservedForEndpoint: make(map[netip.AddrPort][3]uint8),
+		done:                make(chan struct{}),
 		isConnect:           isConnect,
 		connectAddr:         connectAddr,
 		reserved:            reserved,
@@ -90,6 +91,7 @@ func (c *ClientBind) Open(port uint16) (fns []conn.ReceiveFunc, actualPort uint1
 	case <-c.done:
 		// err = net.ErrClosed
 		// return
+
 		c.done = make(chan struct{})
 	default:
 	}
@@ -130,16 +132,8 @@ func (c *ClientBind) receive(packets [][]byte, sizes []int, eps []conn.Endpoint)
 	return
 }
 
-func (c *ClientBind) Reset() {
-	common.Close(common.PtrOrNil(c.conn))
-}
-
 func (c *ClientBind) Close() error {
 	common.Close(common.PtrOrNil(c.conn))
-	if c.done == nil {
-		c.done = make(chan struct{})
-		return nil
-	}
 	select {
 	case <-c.done:
 	default:
@@ -166,7 +160,7 @@ func (c *ClientBind) Send(bufs [][]byte, ep conn.Endpoint) error {
 			}
 			copy(b[1:4], reserved[:])
 		}
-		_, err = udpConn.WriteTo(b, M.SocksaddrFromNetIP(destination))
+		_, err = udpConn.WriteToUDPAddrPort(b, destination)
 		if err != nil {
 			udpConn.Close()
 			return err
@@ -193,8 +187,16 @@ func (c *ClientBind) SetReservedForEndpoint(destination netip.AddrPort, reserved
 
 type wireConn struct {
 	net.PacketConn
+	conn   net.Conn
 	access sync.Mutex
 	done   chan struct{}
+}
+
+func (w *wireConn) WriteToUDPAddrPort(b []byte, addr netip.AddrPort) (int, error) {
+	if w.conn != nil {
+		return w.conn.Write(b)
+	}
+	return w.PacketConn.WriteTo(b, M.SocksaddrFromNetIP(addr).UDPAddr())
 }
 
 func (w *wireConn) Close() error {
