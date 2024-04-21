@@ -57,7 +57,7 @@ require (
 )
 
 //replace github.com/sagernet/sing => ../sing
-replace github.com/sagernet/sing-quic => github.com/morgenanno/sing-quic v0.1.9-beta.3.0.20240319065235-c48be801c2e2
+replace github.com/sagernet/sing-quic => github.com/morgenanno/sing-quic v0.1.12-hopbeta.1
 
 require github.com/sagernet/wireguard-go v0.0.0-00010101000000-000000000000
 
