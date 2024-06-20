@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"os/user"
+	"runtime"
 	"strings"
 	"time"
 
@@ -23,14 +24,15 @@ import (
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/experimental/libbox/platform"
 	"github.com/sagernet/sing-box/log"
-	"github.com/sagernet/sing-box/ntp"
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing-box/outbound"
 	"github.com/sagernet/sing-box/transport/fakeip"
+
 	dns "github.com/sagernet/sing-dns"
 	mux "github.com/sagernet/sing-mux"
 	tun "github.com/sagernet/sing-tun"
 	vmess "github.com/sagernet/sing-vmess"
+
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/buf"
 	"github.com/sagernet/sing/common/bufio"
@@ -40,9 +42,10 @@ import (
 	F "github.com/sagernet/sing/common/format"
 	M "github.com/sagernet/sing/common/metadata"
 	N "github.com/sagernet/sing/common/network"
-	serviceNTP "github.com/sagernet/sing/common/ntp"
+	"github.com/sagernet/sing/common/ntp"
 	"github.com/sagernet/sing/common/task"
 	"github.com/sagernet/sing/common/uot"
+	"github.com/sagernet/sing/common/winpowrprof"
 	"github.com/sagernet/sing/service"
 	"github.com/sagernet/sing/service/pause"
 )
@@ -70,9 +73,9 @@ type Router struct {
 	geositeCache                         map[string]adapter.Rule
 	needFindProcess                      bool
 	dnsClient                            *dns.Client
+	staticDns                            map[string]StaticDNSEntry //Hiddify
 	defaultDomainStrategy                dns.DomainStrategy
 	dnsRules                             []adapter.DNSRule
-	staticDns                            map[string]StaticDNSEntry //Hiddify
 	ruleSets                             []adapter.RuleSet
 	ruleSetMap                           map[string]adapter.RuleSet
 	defaultTransport                     dns.Transport
@@ -81,13 +84,14 @@ type Router struct {
 	transportDomainStrategy              map[dns.Transport]dns.DomainStrategy
 	dnsReverseMapping                    *DNSReverseMapping
 	fakeIPStore                          adapter.FakeIPStore
-	interfaceFinder                      myInterfaceFinder
+	interfaceFinder                      *control.DefaultInterfaceFinder
 	autoDetectInterface                  bool
 	defaultInterface                     string
 	defaultMark                          int
 	networkMonitor                       tun.NetworkUpdateMonitor
 	interfaceMonitor                     tun.DefaultInterfaceMonitor
 	packageManager                       tun.PackageManager
+	powerListener                        winpowrprof.EventListener
 	processSearcher                      process.Searcher
 	timeService                          *ntp.Service
 	pauseManager                         pause.Manager
@@ -125,6 +129,7 @@ func NewRouter(
 		needFindProcess:       hasRule(options.Rules, isProcessRule) || hasDNSRule(dnsOptions.Rules, isProcessDNSRule) || options.FindProcess,
 		defaultDetour:         options.Final,
 		defaultDomainStrategy: dns.DomainStrategy(dnsOptions.Strategy),
+		interfaceFinder:       control.NewDefaultInterfaceFinder(),
 		autoDetectInterface:   options.AutoDetectInterface,
 		defaultInterface:      options.DefaultInterface,
 		defaultMark:           options.DefaultMark,
@@ -140,7 +145,17 @@ func NewRouter(
 		DisableCache:     dnsOptions.DNSClientOptions.DisableCache,
 		DisableExpire:    dnsOptions.DNSClientOptions.DisableExpire,
 		IndependentCache: dnsOptions.DNSClientOptions.IndependentCache,
-		Logger:           router.dnsLogger,
+		RDRC: func() dns.RDRCStore {
+			cacheFile := service.FromContext[adapter.CacheFile](ctx)
+			if cacheFile == nil {
+				return nil
+			}
+			if !cacheFile.StoreRDRC() {
+				return nil
+			}
+			return cacheFile
+		},
+		Logger: router.dnsLogger,
 	})
 	for i, ruleOptions := range options.Rules {
 		routeRule, err := NewRule(router, router.logger, ruleOptions, true)
@@ -230,7 +245,20 @@ func NewRouter(
 					// return nil, E.New("parse dns server[", tag, "]: missing address_resolver")
 				}
 			}
-			transport, err := dns.CreateTransport(tag, ctx, logFactory.NewLogger(F.ToString("dns/transport[", tag, "]")), detour, server.Address)
+			var clientSubnet netip.Prefix
+			if server.ClientSubnet != nil {
+				clientSubnet = server.ClientSubnet.Build()
+			} else if dnsOptions.ClientSubnet != nil {
+				clientSubnet = dnsOptions.ClientSubnet.Build()
+			}
+			transport, err := dns.CreateTransport(dns.TransportOptions{
+				Context:      ctx,
+				Logger:       logFactory.NewLogger(F.ToString("dns/transport[", tag, "]")),
+				Name:         tag,
+				Dialer:       detour,
+				Address:      server.Address,
+				ClientSubnet: clientSubnet,
+			})
 			if err != nil {
 				return nil, E.Cause(err, "parse dns server[", tag, "]")
 			} else {
@@ -275,7 +303,12 @@ func NewRouter(
 	}
 	if defaultTransport == nil {
 		if len(transports) == 0 {
-			transports = append(transports, dns.NewLocalTransport("local", N.SystemDialer))
+			transports = append(transports, common.Must1(dns.CreateTransport(dns.TransportOptions{
+				Context: ctx,
+				Name:    "local",
+				Address: "local",
+				Dialer:  common.Must1(dialer.NewDefault(router, option.DialerOptions{})),
+			})))
 		}
 		defaultTransport = transports[0]
 	}
@@ -316,7 +349,7 @@ func NewRouter(
 			}
 			router.networkMonitor = networkMonitor
 			networkMonitor.RegisterCallback(func() {
-				_ = router.interfaceFinder.update()
+				_ = router.interfaceFinder.Update()
 			})
 			interfaceMonitor, err := tun.NewDefaultInterfaceMonitor(router.networkMonitor, router.logger, tun.DefaultInterfaceMonitorOptions{
 				OverrideAndroidVPN:    options.OverrideAndroidVPN,
@@ -341,12 +374,28 @@ func NewRouter(
 		router.interfaceMonitor = interfaceMonitor
 	}
 
-	if ntpOptions.Enabled {
-		timeService, err := ntp.NewService(ctx, router, logFactory.NewLogger("ntp"), ntpOptions)
+	if runtime.GOOS == "windows" {
+		powerListener, err := winpowrprof.NewEventListener(router.notifyWindowsPowerEvent)
 		if err != nil {
-			return nil, err
+			return nil, E.Cause(err, "initialize power listener")
 		}
-		service.ContextWith[serviceNTP.TimeService](ctx, timeService)
+		router.powerListener = powerListener
+	}
+
+	if ntpOptions.Enabled {
+		ntpDialer, err := dialer.New(router, ntpOptions.DialerOptions)
+		if err != nil {
+			return nil, E.Cause(err, "create NTP service")
+		}
+		timeService := ntp.NewService(ntp.Options{
+			Context:       ctx,
+			Dialer:        ntpDialer,
+			Logger:        logFactory.NewLogger("ntp"),
+			Server:        ntpOptions.ServerOptions.Build(),
+			Interval:      time.Duration(ntpOptions.Interval),
+			WriteToSystem: ntpOptions.WriteToSystem,
+		})
+		service.MustRegister[ntp.TimeService](ctx, timeService)
 		router.timeService = timeService
 	}
 
@@ -357,7 +406,7 @@ func NewRouter(
 		}
 		ctx, metadata := adapter.AppendContext(ctx)
 		metadata.Domain = domain
-		ctx, dnstransport, _ := router.matchDNS(ctx, false)
+		ctx, dnstransport, _, _, _ := router.matchDNS(ctx, false, 0)
 
 		if dnstransport != nil && dnstransport.Name() == tag {
 			return nil, E.New("Dns Loop Detected[", tag, "]")
@@ -595,6 +644,16 @@ func (r *Router) Start() error {
 			}
 		}
 	}
+
+	if r.powerListener != nil {
+		monitor.Start("start power listener")
+		err := r.powerListener.Start()
+		monitor.Finish()
+		if err != nil {
+			return E.Cause(err, "start power listener")
+		}
+	}
+
 	if (needWIFIStateFromRuleSet || r.needWIFIState) && r.platformInterface != nil {
 		monitor.Start("initialize WIFI state")
 		r.needWIFIState = true
@@ -613,6 +672,11 @@ func (r *Router) Start() error {
 			return E.Cause(err, "initialize rule[", i, "]")
 		}
 	}
+
+	monitor.Start("initialize DNS client")
+	r.dnsClient.Start()
+	monitor.Finish()
+
 	for i, rule := range r.dnsRules {
 		monitor.Start("initialize DNS rule[", i, "]")
 		err := rule.Start()
@@ -689,6 +753,13 @@ func (r *Router) Close() error {
 		monitor.Start("close package manager")
 		err = E.Append(err, r.packageManager.Close(), func(err error) error {
 			return E.Cause(err, "close package manager")
+		})
+		monitor.Finish()
+	}
+	if r.powerListener != nil {
+		monitor.Start("close power listener")
+		err = E.Append(err, r.powerListener.Close(), func(err error) error {
+			return E.Cause(err, "close power listener")
 		})
 		monitor.Finish()
 	}
@@ -1063,25 +1134,19 @@ func (r *Router) match0(ctx context.Context, metadata *adapter.InboundContext, d
 }
 
 func (r *Router) InterfaceFinder() control.InterfaceFinder {
-	return &r.interfaceFinder
+	return r.interfaceFinder
 }
 
 func (r *Router) UpdateInterfaces() error {
 	r.logger.Info("Hiddify!UpdateInterfaces ")
 	if r.platformInterface == nil || !r.platformInterface.UsePlatformInterfaceGetter() {
-		return r.interfaceFinder.update()
+		return r.interfaceFinder.Update()
 	} else {
 		interfaces, err := r.platformInterface.Interfaces()
 		if err != nil {
 			return err
 		}
-		r.interfaceFinder.updateInterfaces(common.Map(interfaces, func(it platform.NetworkInterface) net.Interface {
-			return net.Interface{
-				Name:  it.Name,
-				Index: it.Index,
-				MTU:   it.MTU,
-			}
-		}))
+		r.interfaceFinder.UpdateInterfaces(interfaces)
 		return nil
 	}
 }
@@ -1227,6 +1292,7 @@ func (r *Router) updateWIFIState() {
 		}
 	}
 }
+
 func (r *Router) SortedOutboundsByDependenciesHiddify() []adapter.Outbound { //hiddify
 	return r.sortedOutboundsByDependenciesHiddify
 }
@@ -1248,6 +1314,22 @@ func (r *Router) doSortOutboundsByDependencies() {
 
 	for _, outboundToStart := range r.outbounds {
 		appendOutbounds(outboundToStart)
+	}
+}
+
+func (r *Router) notifyWindowsPowerEvent(event int) {
+	switch event {
+	case winpowrprof.EVENT_SUSPEND:
+		r.pauseManager.DevicePause()
+		_ = r.ResetNetwork()
+	case winpowrprof.EVENT_RESUME:
+		if !r.pauseManager.IsDevicePaused() {
+			return
+		}
+		fallthrough
+	case winpowrprof.EVENT_RESUME_AUTOMATIC:
+		r.pauseManager.DeviceWake()
+		_ = r.ResetNetwork()
 	}
 
 }

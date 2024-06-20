@@ -288,9 +288,9 @@ func (w *WireGuard) DialContext(ctx context.Context, network string, destination
 	if r := recover(); r != nil {
 		fmt.Println("SWireguard error!", r, string(debug.Stack()))
 	}
-	if !w.device.IsUp() {
-		return nil, E.New("Interface is not ready yet")
-	}
+	// if !w.device.IsUp() {
+	// 	return nil, E.New("Interface is not ready yet")
+	// }
 
 	switch network {
 	case N.NetworkTCP:
@@ -312,9 +312,9 @@ func (w *WireGuard) ListenPacket(ctx context.Context, destination M.Socksaddr) (
 	if r := recover(); r != nil {
 		fmt.Println("SWireguard error!", r, string(debug.Stack()))
 	}
-	if !w.device.IsUp() {
-		return nil, E.New("Interface is not ready yet")
-	}
+	// if !w.device.IsUp() {
+	// 	return nil, E.New("Interface is not ready yet")
+	// }
 	w.logger.InfoContext(ctx, "outbound packet connection to ", destination)
 	if destination.IsFqdn() {
 		destinationAddresses, err := w.router.LookupDefault(ctx, destination.Fqdn)

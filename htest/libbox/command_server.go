@@ -10,6 +10,11 @@ type CommandServerHandler struct {
 	logger log.Logger
 }
 
+// PostServiceClose implements libbox.CommandServerHandler.
+func (csh *CommandServerHandler) PostServiceClose() {
+	panic("unimplemented")
+}
+
 var commandServer *libbox.CommandServer
 
 func (csh *CommandServerHandler) ServiceReload() error {
