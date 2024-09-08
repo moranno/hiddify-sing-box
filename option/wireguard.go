@@ -21,6 +21,7 @@ type WireGuardOutboundOptions struct {
 	FakePackets      string            `json:"fake_packets,omitempty"`
 	FakePacketsSize  string            `json:"fake_packets_size,omitempty"`
 	FakePacketsDelay string            `json:"fake_packets_delay,omitempty"`
+	FakePacketsMode string `json:"fake_packets_mode,omitempty"`
 }
 
 type WireGuardPeer struct {

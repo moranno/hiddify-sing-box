@@ -24,6 +24,7 @@ const (
 	TypeTUIC          = "tuic"
 	TypeHysteria2     = "hysteria2"
 	TypeCustom        = "custom"
+	TypeXray          = "xray"
 	TypeInvalidConfig = "invalid"
 )
 

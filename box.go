@@ -215,7 +215,7 @@ func (s *Box) PreStart() error {
 		defer func() {
 			v := recover()
 			if v != nil {
-				log.Error(E.Cause(err, "origin error"))
+				println(err.Error())
 				debug.PrintStack()
 				panic("panic on early close: " + fmt.Sprint(v))
 			}
@@ -234,9 +234,9 @@ func (s *Box) Start() error {
 		defer func() {
 			v := recover()
 			if v != nil {
-				log.Error(E.Cause(err, "origin error"))
+				println(err.Error())
 				debug.PrintStack()
-				panic("panic on early close: " + fmt.Sprint(v))
+				println("panic on early start: " + fmt.Sprint(v))
 			}
 		}()
 		s.Close()

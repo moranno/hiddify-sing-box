@@ -119,19 +119,18 @@ func NewDefault(router adapter.Router, options option.DialerOptions) (*DefaultDi
 		}
 		tlsFragment.Enabled = true
 
-		sleep, err := option.ParseIntRange(options.TLSFragment.Sleep)
+		sleep, err := option.Parse2IntRange(options.TLSFragment.Sleep)
+
 		if err != nil {
 			return nil, E.Cause(err, "invalid TLS fragment sleep period supplied")
 		}
-		tlsFragment.SleepMin = sleep[0]
-		tlsFragment.SleepMax = sleep[1]
+		tlsFragment.Sleep = sleep
 
-		size, err := option.ParseIntRange(options.TLSFragment.Size)
+		size, err := option.Parse2IntRange(options.TLSFragment.Size)
 		if err != nil {
 			return nil, E.Cause(err, "invalid TLS fragment size supplied")
 		}
-		tlsFragment.SizeMin = size[0]
-		tlsFragment.SizeMax = size[1]
+		tlsFragment.Size = size
 
 	}
 	if options.IsWireGuardListener {

@@ -23,7 +23,7 @@ import (
 )
 
 const TimeoutDelay = 65535
-const MinFailureToReset = 10
+const MinFailureToReset = 15
 
 var (
 	_ adapter.Outbound                = (*URLTest)(nil)
@@ -145,7 +145,8 @@ func (s *URLTest) DialContext(ctx context.Context, network string, destination M
 	}
 	conn, err := outbound.DialContext(ctx, network, destination)
 	if err == nil {
-		s.group.tcpConnectionFailureCount.Decrement(false)
+		// s.group.tcpConnectionFailureCount.Decrement(false)
+		s.group.tcpConnectionFailureCount.Reset()
 		return s.group.interruptGroup.NewConn(conn, interrupt.IsExternalConnectionFromContext(ctx)), nil
 	}
 
@@ -171,7 +172,8 @@ func (s *URLTest) ListenPacket(ctx context.Context, destination M.Socksaddr) (ne
 	}
 	conn, err := outbound.ListenPacket(ctx, destination)
 	if err == nil {
-		s.group.udpConnectionFailureCount.Decrement(false)
+		// s.group.udpConnectionFailureCount.Decrement(false)
+		s.group.udpConnectionFailureCount.Reset()
 		return s.group.interruptGroup.NewPacketConn(conn, interrupt.IsExternalConnectionFromContext(ctx)), nil
 	}
 	if !s.group.pauseManager.IsNetworkPaused() && s.group.udpConnectionFailureCount.IncrementConditionReset(MinFailureToReset) {
@@ -306,19 +308,19 @@ func (g *URLTestGroup) Close() error {
 }
 
 func (g *URLTestGroup) Select(network string) (adapter.Outbound, bool) {
-	var minDelay uint16
+	var minDelay uint16 = TimeoutDelay
 	var minOutbound adapter.Outbound
 	switch network {
 	case N.NetworkTCP:
 		if g.selectedOutboundTCP != nil {
-			if history := g.history.LoadURLTestHistory(RealTag(g.selectedOutboundTCP)); history != nil {
+			if history := g.history.LoadURLTestHistory(RealTag(g.selectedOutboundTCP)); history != nil && history.Delay != TimeoutDelay {
 				minOutbound = g.selectedOutboundTCP
 				minDelay = history.Delay
 			}
 		}
 	case N.NetworkUDP:
 		if g.selectedOutboundUDP != nil {
-			if history := g.history.LoadURLTestHistory(RealTag(g.selectedOutboundUDP)); history != nil {
+			if history := g.history.LoadURLTestHistory(RealTag(g.selectedOutboundUDP)); history != nil && history.Delay != TimeoutDelay {
 				minOutbound = g.selectedOutboundUDP
 				minDelay = history.Delay
 			}
@@ -332,7 +334,7 @@ func (g *URLTestGroup) Select(network string) (adapter.Outbound, bool) {
 		if history == nil || history.Delay == TimeoutDelay {
 			continue
 		}
-		if minDelay == 0 || minDelay > history.Delay+g.tolerance {
+		if minDelay == 0 || minDelay == TimeoutDelay || minDelay > history.Delay+g.tolerance {
 			minDelay = history.Delay
 			minOutbound = detour
 		}
@@ -405,9 +407,9 @@ func (g *URLTestGroup) urlTest(ctx context.Context, force bool) (map[string]uint
 			continue
 		}
 		b.Go(realTag, func() (any, error) {
-			ctx, cancel := context.WithTimeout(context.Background(), C.TCPTimeout)
+			testCtx, cancel := context.WithTimeout(g.ctx, C.TCPTimeout)
 			defer cancel()
-			t, err := urltest.URLTest(ctx, g.link, p)
+			t, err := urltest.URLTest(testCtx, g.link, p)
 			if err != nil {
 				g.logger.Debug("outbound ", tag, " unavailable (", TimeoutDelay, "ms): ", err)
 				// g.history.DeleteURLTestHistory(realTag)
@@ -421,8 +423,8 @@ func (g *URLTestGroup) urlTest(ctx context.Context, force bool) (map[string]uint
 			})
 			resultAccess.Lock()
 			result[tag] = t
-			resultAccess.Unlock()
 			g.performUpdateCheck()
+			resultAccess.Unlock()
 
 			return nil, nil
 		})

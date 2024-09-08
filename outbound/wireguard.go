@@ -20,8 +20,8 @@ import (
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing-box/outbound/houtbound"
 	"github.com/sagernet/sing-box/transport/wireguard"
-	"github.com/sagernet/sing-dns"
-	"github.com/sagernet/sing-tun"
+	dns "github.com/sagernet/sing-dns"
+	tun "github.com/sagernet/sing-tun"
 	"github.com/sagernet/sing/common"
 	E "github.com/sagernet/sing/common/exceptions"
 	M "github.com/sagernet/sing/common/metadata"
@@ -56,6 +56,7 @@ type WireGuard struct {
 	fakePackets      []int
 	fakePacketsSize  []int
 	fakePacketsDelay []int
+	fakePacketsMode  string
 	lastUpdate       time.Time
 }
 
@@ -78,6 +79,7 @@ func NewWireGuard(ctx context.Context, router adapter.Router, logger log.Context
 	outbound.fakePackets = []int{0, 0}
 	outbound.fakePacketsSize = []int{0, 0}
 	outbound.fakePacketsDelay = []int{0, 0}
+	outbound.fakePacketsMode = options.FakePacketsMode
 	if options.FakePackets != "" {
 		var err error
 		outbound.fakePackets, err = option.ParseIntRange(options.FakePackets)
@@ -85,7 +87,7 @@ func NewWireGuard(ctx context.Context, router adapter.Router, logger log.Context
 			return nil, err
 		}
 		outbound.fakePacketsSize = []int{40, 100}
-		outbound.fakePacketsDelay = []int{200, 500}
+		outbound.fakePacketsDelay = []int{10, 50}
 
 		if options.FakePacketsSize != "" {
 			var err error
@@ -102,7 +104,6 @@ func NewWireGuard(ctx context.Context, router adapter.Router, logger log.Context
 				return nil, err
 			}
 		}
-
 	}
 
 	peers, err := wireguard.ParsePeers(options)
@@ -200,7 +201,41 @@ func (w *WireGuard) start() error {
 		Errorf: func(format string, args ...interface{}) {
 			w.logger.Error(fmt.Sprintf(strings.ToLower(format), args...))
 		},
-	}, w.workers, w.fakePackets, w.fakePacketsSize, w.fakePacketsDelay)
+	}, w.workers)
+	wgDevice.FakePackets = w.fakePackets
+	wgDevice.FakePacketsSize = w.fakePacketsSize
+	wgDevice.FakePacketsDelays = w.fakePacketsDelay
+	mode := strings.ToLower(w.fakePacketsMode)
+	if mode == "" || mode == "m1" {
+		wgDevice.FakePacketsHeader = []byte{}
+		wgDevice.FakePacketsNoModify = false
+	} else if mode == "m2" {
+		wgDevice.FakePacketsHeader = []byte{}
+		wgDevice.FakePacketsNoModify = true
+	} else if mode == "m3" {
+		// clist := []byte{0xC0, 0xC2, 0xC3, 0xC4, 0xC9, 0xCB, 0xCC, 0xCD, 0xCE, 0xCF}
+		wgDevice.FakePacketsHeader = []byte{0xDC, 0xDE, 0xD3, 0xD9, 0xD0, 0xEC, 0xEE, 0xE3}
+		wgDevice.FakePacketsNoModify = false
+	} else if mode == "m4" {
+		wgDevice.FakePacketsHeader = []byte{0xDC, 0xDE, 0xD3, 0xD9, 0xD0, 0xEC, 0xEE, 0xE3}
+		wgDevice.FakePacketsNoModify = true
+	} else if mode == "m5" {
+		wgDevice.FakePacketsHeader = []byte{0xC0, 0xC2, 0xC3, 0xC4, 0xC9, 0xCB, 0xCC, 0xCD, 0xCE, 0xCF}
+		wgDevice.FakePacketsNoModify = false
+	} else if mode == "m6" {
+		wgDevice.FakePacketsHeader = []byte{0x40, 0x42, 0x43, 0x44, 0x49, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F}
+		wgDevice.FakePacketsNoModify = true
+	} else if strings.HasPrefix(mode, "h") || strings.HasPrefix(mode, "g") {
+		clist, err := hex.DecodeString(strings.ReplaceAll(mode[1:], "_", ""))
+		if err != nil {
+			return err
+		}
+		wgDevice.FakePacketsHeader = clist
+		wgDevice.FakePacketsNoModify = strings.HasPrefix(mode, "h")
+	} else {
+		return fmt.Errorf("incorrect packet mode: %s", mode)
+	}
+
 	ipcConf := w.ipcConf
 	for _, peer := range w.peers {
 		ipcConf += peer.GenerateIpcLines()
